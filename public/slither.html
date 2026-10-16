@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0e0628">
+  <title>Cobrinha 3D – Jogo da Cobrinha do Otávio</title>
+  <link rel="icon" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bungee&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+    { "imports": { "three": "/vendor/three/build/three.module.js", "three/addons/": "/vendor/three/examples/jsm/" } }
+  </script>
+</head>
+<body class="arena">
+  <div id="hud">
+    <div id="me"><b id="score"></b><span id="rank"></span></div>
+    <ol id="board" aria-label="Ranking da sala"></ol>
+    <ul id="powers"></ul>
+    <ul id="feed" aria-live="polite"></ul>
+    <button id="glow" class="round" title="Brilho neon: desligue se o celular esquentar" aria-label="Brilho neon">✨</button>
+    <button id="boost" class="round" aria-label="Turbo">⚡</button>
+  </div>
+  <div id="labels" aria-hidden="true"></div>
+  <div id="warn" aria-hidden="true"></div>
+  <div id="stick" hidden><div id="knob"></div></div>
+
+  <section id="menu" class="panel">
+    <h1>Cobrinha 3D</h1>
+    <p id="death" hidden></p>
+    <label for="name">Seu apelido</label>
+    <input id="name" maxlength="16" autocomplete="nickname" placeholder="Anônimo" enterkeyhint="go">
+    <p class="label">Sua cobra</p>
+    <div id="skins"></div>
+    <button id="play" disabled>Jogar</button>
+    <p id="status" role="status">Conectando ao servidor…</p>
+    <p class="help for-mouse">O mouse aponta para onde virar. Clique ou aperte espaço para o turbo. As setas também funcionam.</p>
+    <p class="help for-touch">Arraste o dedo para virar. Segure ⚡ para o turbo.</p>
+    <a href="./">Voltar ao Jogo da Cobrinha do Otávio</a>
+  </section>
+
+  <script type="module" src="js/slither.js"></script>
+</body>
+</html>
