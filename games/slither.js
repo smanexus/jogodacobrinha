@@ -15,26 +15,9 @@
 //         add:   [id, x, y, z, valor, tipo, cor]
 //     {t:'you', id}                        sua cobra nasceu com esse id
 import * as S from '../public/shared/slither-rules.js';
+import { rnd, pick, dot, cross, norm, perp, randomDir, randomPoint, turn, steerDir, parseSteer, cleanName } from './vec.js';
 
 const q = v => Math.round(v * 100) / 100; // cabeças vão arredondadas: o cliente recebe o mesmo número
-const rnd = (a, b) => a + Math.random() * (b - a);
-const pick = arr => arr[Math.floor(Math.random() * arr.length)];
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const norm = v => { const l = Math.sqrt(dot(v, v)) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
-const perp = d => norm(cross(d, Math.abs(d[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0]));
-const randomDir = () => { const z = rnd(-1, 1), a = rnd(0, Math.PI * 2), s = Math.sqrt(1 - z * z); return [Math.cos(a) * s, Math.sin(a) * s, z]; };
-const randomPoint = maxR => { const d = randomDir(), k = maxR * Math.cbrt(Math.random()); return [d[0] * k, d[1] * k, d[2] * k]; };
-
-// gira a direção d rumo a `a`, no máximo `max` radianos
-export function turn(d, a, max) {
-  const c = Math.max(-1, Math.min(1, dot(d, a)));
-  if (Math.acos(c) <= max) return a;
-  let p = [a[0] - d[0] * c, a[1] - d[1] * c, a[2] - d[2] * c];
-  p = dot(p, p) < 1e-9 ? perp(d) : norm(p);
-  const cs = Math.cos(max), sn = Math.sin(max);
-  return norm([d[0] * cs + p[0] * sn, d[1] * cs + p[1] * sn, d[2] * cs + p[2] * sn]);
-}
 
 // grade espacial: acha gomos perto de um ponto sem testar todos
 const CELL = 5;
@@ -119,17 +102,8 @@ export function createSlitherRoom() {
     const b = s.body;
     let d = s.dir;
     const rate = S.turnRate(s.r) * S.DT;
-    if (s.steer) { // humano: vira relativo à direção atual, no "cima" da câmera dele
-      const { x, y, u } = s.steer;
-      const c = dot(u, d);
-      let up = [u[0] - d[0] * c, u[1] - d[1] * c, u[2] - d[2] * c];
-      up = dot(up, up) < 1e-6 ? perp(d) : norm(up);
-      const right = cross(d, up), mag = Math.min(1, Math.hypot(x, y));
-      if (mag > 0.02) {
-        const side = norm([right[0] * x + up[0] * y, right[1] * x + up[1] * y, right[2] * x + up[2] * y]);
-        d = turn(d, norm([d[0] + side[0] * 10, d[1] + side[1] * 10, d[2] + side[2] * 10]), mag * rate);
-      }
-    } else if (s.aim) d = turn(d, s.aim, rate); // bot: mira absoluta
+    if (s.steer) d = steerDir(d, s.steer, rate); // humano: relativo à câmera dele
+    else if (s.aim) d = turn(d, s.aim, rate);     // bot: mira absoluta
     s.dir = d;
 
     const free = on(s, 'SPEED');
@@ -279,15 +253,12 @@ export function createSlitherRoom() {
   function handle(ws, m) {
     if (m?.t === 'join') {
       if (ws.snake || joins.some(j => j.ws === ws)) return;
-      const name = String(m.name ?? '').replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, 16) || 'Anônimo';
+      const name = cleanName(m.name);
       const skin = Number.isInteger(m.skin) && m.skin >= 0 && m.skin < S.SKINS.length ? m.skin : 0;
       joins.push({ ws, name, skin });
     } else if (m?.t === 'in' && ws.snake) {
-      const s = ws.snake, x = Number(m.x), y = Number(m.y), u = Array.isArray(m.u) ? m.u.slice(0, 3).map(Number) : [];
-      s.boost = !!m.b;
-      if (u.length === 3 && [x, y, ...u].every(Number.isFinite) && dot(u, u) > 1e-6) {
-        s.steer = { x: Math.max(-1, Math.min(1, x)), y: Math.max(-1, Math.min(1, y)), u: norm(u) };
-      }
+      ws.snake.boost = !!m.b;
+      ws.snake.steer = parseSteer(m) ?? ws.snake.steer;
     }
   }
 

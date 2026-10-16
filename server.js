@@ -6,6 +6,7 @@ import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { createSlitherRoom } from './games/slither.js';
+import { createAgarRoom } from './games/agar.js';
 import { TICK_RATE } from './public/shared/slither-rules.js';
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url));
@@ -37,9 +38,10 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-const rooms = { '/ws/slither': createSlitherRoom() };
-// só a mensagem inicial (estado completo) é grande o bastante para valer comprimir
-const wss = new WebSocketServer({ noServer: true, maxPayload: 4096, perMessageDeflate: { threshold: 8192 } });
+// todas as salas rodam a TICK_RATE (20/s)
+const rooms = { '/ws/slither': createSlitherRoom(), '/ws/agar': createAgarRoom() };
+// comprimir corta ~55% dos ticks: faz diferença no plano de dados do celular
+const wss = new WebSocketServer({ noServer: true, maxPayload: 4096, perMessageDeflate: { threshold: 512 } });
 
 server.on('upgrade', (req, socket, head) => {
   const room = rooms[new URL(req.url, 'http://x').pathname];

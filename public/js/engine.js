@@ -13,6 +13,10 @@ export const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* sem armazenamento: tudo bem */ } },
 };
 
+// cores 0xRRGGBB → THREE.Color, criadas uma vez só
+const palette = new Map();
+export const col = hex => palette.get(hex) ?? palette.set(hex, new THREE.Color(hex)).get(hex);
+
 const randomDir = v => {
   const z = Math.random() * 2 - 1, a = Math.random() * Math.PI * 2, s = Math.sqrt(1 - z * z);
   return v.set(Math.cos(a) * s, Math.sin(a) * s, z);
@@ -103,10 +107,11 @@ export function createEngine(R) {
 }
 
 // Desenha milhares de objetos iguais numa única chamada (essencial no celular).
-// `glow` faz a cor de cada instância também emitir luz (vira neon com o bloom).
+// `glow` faz a cor de cada instância também emitir luz (vira neon com o bloom);
+// `rim` acende a borda (efeito de bolha).
 const M4 = new THREE.Matrix4(), POS = new THREE.Vector3(), SCALE = new THREE.Vector3();
 export class Batch {
-  constructor(scene, geo, max, { glow = 0.3, opacity = 1, additive = false } = {}) {
+  constructor(scene, geo, max, { glow = 0.3, rim = 0, opacity = 1, additive = false } = {}) {
     const mat = new THREE.MeshStandardMaterial({
       roughness: 0.35, metalness: 0.05, opacity,
       transparent: opacity < 1 || additive, depthWrite: opacity === 1 && !additive,
@@ -114,9 +119,11 @@ export class Batch {
     });
     mat.onBeforeCompile = sh => {
       sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>',
-        `#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += vColor.rgb * ${glow.toFixed(3)};`);
+        `#include <emissivemap_fragment>
+        float rimLight = pow(1.0 - abs(dot(normalize(normal), normalize(vViewPosition))), 2.0);
+        totalEmissiveRadiance += vColor.rgb * (${glow.toFixed(3)} + rimLight * ${rim.toFixed(3)});`);
     };
-    mat.customProgramCacheKey = () => `glow${glow}`;
+    mat.customProgramCacheKey = () => `glow${glow}rim${rim}`;
     this.mesh = new THREE.InstancedMesh(geo, mat, max);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.setColorAt(0, new THREE.Color()); // cria o buffer de cor antes do 1º desenho
@@ -221,10 +228,15 @@ export class ChaseCam {
 
 // Controles. Mouse: a distância do centro da tela diz para onde e quanto virar.
 // Toque: joystick flutuante (arrasta a partir de onde encostou). Teclado: setas/WASD.
-// Turbo: clique, espaço ou o botão ⚡.
-export function createInput({ boostBtn, stick, knob }) {
-  const s = { x: 0, y: 0, mouse: false, key: false, btn: false, keys: new Set() };
-  let touch = null, x0 = 0, y0 = 0;
+// Duas ações por jogo:
+//   primary   = clique esquerdo, espaço ou o botão `primary` (Cobrinha: turbo; Bolhas: dividir)
+//   secondary = clique direito, E ou o botão `secondary` (Bolhas: ejetar massa)
+// get() devolve o estado segurado; onPress(nome) avisa no instante do aperto.
+export function createInput({ stick, knob, primary, secondary, onPress = () => {} }) {
+  const s = { x: 0, y: 0, keys: new Set(), mouse: [false, false], key: [false, false], btn: [false, false] };
+  let touch = null, x0 = 0, y0 = 0, lastTouch = -1e9;
+  const NAMES = ['primary', 'secondary'];
+  const press = (src, i) => { if (!src[i]) { src[i] = true; onPress(NAMES[i]); } };
   const isUI = e => e.target.closest?.('button, a, input, label, .panel');
   const clamp = (x, y) => { const l = Math.hypot(x, y); return l > 1 ? [x / l, y / l] : l < 0.06 ? [0, 0] : [x, y]; };
   const mouseAim = e => {
@@ -234,10 +246,10 @@ export function createInput({ boostBtn, stick, knob }) {
   const release = () => { touch = null; s.x = s.y = 0; stick.hidden = true; };
 
   addEventListener('pointerdown', e => {
-    if (e.pointerType === 'touch') document.body.classList.add('touch'); // mostra o botão de turbo
-    if (isUI(e)) return;
-    if (e.pointerType === 'mouse') { mouseAim(e); if (e.button === 0) s.mouse = true; return; }
-    if (touch !== null) return;
+    if (e.pointerType === 'mouse') return void (isUI(e) || mouseAim(e));
+    lastTouch = performance.now();
+    document.body.classList.add('touch'); // mostra os botões de ação
+    if (isUI(e) || touch !== null) return;
     touch = e.pointerId; x0 = e.clientX; y0 = e.clientY;
     stick.style.left = `${x0}px`; stick.style.top = `${y0}px`;
     knob.style.transform = '';
@@ -250,33 +262,42 @@ export function createInput({ boostBtn, stick, knob }) {
     [s.x, s.y] = clamp((e.clientX - x0) / k, -(e.clientY - y0) / k);
     knob.style.transform = `translate(${s.x * 40}px, ${-s.y * 40}px)`;
   });
-  for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, e => {
-    if (e.pointerType === 'mouse') s.mouse = false;
-    else if (e.pointerId === touch) release();
+  for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, e => { if (e.pointerId === touch) release(); });
+  // botões do mouse por mousedown: o pointerdown não avisa o 2º botão apertado junto
+  addEventListener('mousedown', e => {
+    if (isUI(e) || performance.now() - lastTouch < 800) return; // toque também gera mousedown "de mentira"
+    if (e.button === 0) press(s.mouse, 0);
+    if (e.button === 2) press(s.mouse, 1);
   });
-  addEventListener('blur', () => { s.mouse = s.key = s.btn = false; s.keys.clear(); release(); });
+  addEventListener('mouseup', e => { if (e.button === 0) s.mouse[0] = false; if (e.button === 2) s.mouse[1] = false; });
+  addEventListener('blur', () => { s.mouse.fill(false); s.key.fill(false); s.btn.fill(false); s.keys.clear(); release(); });
   addEventListener('contextmenu', e => { if (!isUI(e)) e.preventDefault(); });
 
   const KEYS = { ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r', ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd' };
   addEventListener('keydown', e => {
     if (e.target.closest?.('input')) return;
-    if (e.code === 'Space') { s.key = true; e.preventDefault(); }
+    if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) press(s.key, 0); }
+    if (e.code === 'KeyE' && !e.repeat) press(s.key, 1);
     if (KEYS[e.code]) { s.keys.add(KEYS[e.code]); e.preventDefault(); }
   });
   addEventListener('keyup', e => {
-    if (e.code === 'Space') s.key = false;
+    if (e.code === 'Space') s.key[0] = false;
+    if (e.code === 'KeyE') s.key[1] = false;
     s.keys.delete(KEYS[e.code]);
   });
 
-  boostBtn.addEventListener('pointerdown', e => { s.btn = true; boostBtn.setPointerCapture(e.pointerId); });
-  for (const ev of ['pointerup', 'pointercancel']) boostBtn.addEventListener(ev, () => { s.btn = false; });
+  [primary, secondary].forEach((btn, i) => {
+    if (!btn) return;
+    btn.addEventListener('pointerdown', e => { btn.setPointerCapture(e.pointerId); press(s.btn, i); });
+    for (const ev of ['pointerup', 'pointercancel']) btn.addEventListener(ev, () => { s.btn[i] = false; });
+  });
 
   return {
     get() {
       const k = s.keys;
       const kx = (k.has('r') ? 1 : 0) - (k.has('l') ? 1 : 0), ky = (k.has('u') ? 1 : 0) - (k.has('d') ? 1 : 0);
       const [x, y] = kx || ky ? clamp(kx, ky) : [s.x, s.y];
-      return { x, y, boost: s.mouse || s.key || s.btn };
+      return { x, y, primary: s.mouse[0] || s.key[0] || s.btn[0], secondary: s.mouse[1] || s.key[1] || s.btn[1] };
     },
   };
 }

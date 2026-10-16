@@ -10,6 +10,7 @@ Este repositório é editado por mais de uma IA. Para ninguém atropelar ningué
 6. **`public/shared/` roda nos dois lados.** O corpo das cobras é recalculado no navegador e precisa sair idêntico ao do servidor:
    - em `follow()` use só `+ - * /` e `Math.sqrt` (nada de `Math.hypot`, `sin` ou `cos`);
    - mudou regra, protocolo ou a ordem do tick? Rode `npm test`.
-7. **Protocolo:** está documentado no topo de `games/slither.js`. Se mudar, atualize esse comentário e `public/shared/slither-state.js` juntos.
-8. Valide tudo o que chega do cliente (já existe `handle()` em `games/slither.js`). Nomes de jogador vão para a tela sempre por `textContent`, nunca por `innerHTML`.
-9. Antes de subir: `npm test` passando e o jogo aberto no navegador sem erros no console.
+7. **Protocolo:** está documentado no topo de `games/slither.js` e `games/agar.js`. Se mudar, atualize o comentário e o `public/shared/*-state.js` correspondente juntos.
+8. **Reaproveite antes de escrever:** `engine.js` (cena, câmera, controles, `Batch`), `ui.js` (menu, ranking, feed, nomes), `pellets.js`, `shared/theme.js` e `games/vec.js` já servem aos dois jogos.
+9. Valide tudo o que chega do cliente (já existe `handle()` nas salas e `parseSteer`/`cleanName` em `games/vec.js`). Nomes de jogador vão para a tela sempre por `textContent`, nunca por `innerHTML`.
+10. Antes de subir: `npm test` passando e o jogo aberto no navegador sem erros no console.

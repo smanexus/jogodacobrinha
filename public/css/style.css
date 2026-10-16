@@ -61,8 +61,7 @@ label, .label { display: block; font-weight: 700; margin: 18px 0 6px; }
 }
 a.game:hover { border-color: var(--yellow); }
 a.game:active .cta { transform: translateY(2px); box-shadow: 0 2px 0 #b8901c; }
-.game.soon h2 { color: var(--cyan); }
-.game.soon .cta { background: transparent; color: var(--muted); box-shadow: none; border: 2px dashed rgb(255 255 255 / .2); }
+.game.bubbles h2 { color: var(--cyan); }
 
 /* ---------- tela de jogo ---------- */
 body.arena {
@@ -126,13 +125,19 @@ body:not(.playing) #me, body:not(.playing) #powers { display: none; }
 }
 #glow { right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); width: 44px; height: 44px; font-size: 1.2rem; }
 #glow[aria-pressed="false"] { opacity: .4; }
-#boost {
+/* botões de ação no celular (turbo, dividir, soltar massa) */
+.action {
   display: none; right: max(24px, env(safe-area-inset-right)); bottom: max(80px, calc(env(safe-area-inset-bottom) + 68px));
   width: 88px; height: 88px; font-size: 2.2rem; background: rgb(255 210 63 / .22); border: 3px solid var(--yellow);
 }
-#boost:active { background: rgb(255 210 63 / .5); }
-body.playing.touch #boost { display: grid; }
-@media (pointer: coarse) { body.playing #boost { display: grid; } }
+.action:active { background: rgb(255 210 63 / .5); }
+.action.small {
+  right: max(124px, calc(env(safe-area-inset-right) + 112px)); bottom: max(96px, calc(env(safe-area-inset-bottom) + 84px));
+  width: 64px; height: 64px; font-size: 1.6rem; background: rgb(63 216 255 / .2); border-color: var(--cyan);
+}
+.action.small:active { background: rgb(63 216 255 / .45); }
+body.playing.touch .action { display: grid; }
+@media (pointer: coarse) { body.playing .action { display: grid; } }
 #labels span {
   position: fixed; left: 0; top: 0; z-index: 1; pointer-events: none; white-space: nowrap;
   font-size: .8rem; font-weight: 700; color: var(--ink); text-shadow: 0 1px 3px #000, 0 0 8px #000;

@@ -3,7 +3,7 @@
 Jogos de arena em 3D para jogar online, no navegador do PC ou do celular.
 
 - **Cobrinha 3D** (pronto): estilo slither.io, numa arena esférica com movimento livre nos 3 eixos.
-- **Bolhas 3D** (em breve): estilo agar.io, na mesma arena.
+- **Bolhas 3D** (pronto): estilo agar.io, na mesma arena, com divisão, massa ejetada e ouriços.
 
 Sem login: escolhe um apelido e joga. Quando tem pouca gente, bots com nomes brasileiros completam a sala.
 
@@ -18,7 +18,7 @@ npm start
 
 Abra http://localhost:3000. Para testar no celular na mesma rede Wi-Fi, abra `http://IP-DO-COMPUTADOR:3000`.
 
-`npm test` confere que o servidor roda e que o navegador reconstrói as cobras igualzinho ao servidor.
+`npm test` confere que os dois jogos rodam no servidor e que o navegador fica com o mesmo estado do servidor.
 
 ## Publicar no Railway
 
@@ -32,18 +32,24 @@ Deixe **1 réplica só**: cada sala vive na memória do servidor.
 ## Estrutura
 
 ```
-server.js                   servidor HTTP (site) + WebSocket (salas) + loop de 20 ticks/s
-games/slither.js            sala da Cobrinha: física, colisões, comida, power-ups, bots
+server.js                   servidor HTTP (site) + WebSocket (/ws/slither e /ws/agar) + loop de 20 ticks/s
+games/
+  vec.js                    matemática 3D e validação do controle, usadas pelas duas salas
+  slither.js                sala da Cobrinha: física, colisões, comida, power-ups, bots
+  agar.js                   sala das Bolhas: células, dividir, ejetar, ouriços, power-ups, bots
 public/
   index.html                página inicial
-  slither.html              tela da Cobrinha 3D
+  slither.html, agar.html   telas dos jogos
   css/style.css             visual de todas as páginas
   js/engine.js              motor 3D compartilhado: cena, arena, brilho, câmera, controles
+  js/ui.js                  menu, ranking, power-ups, feed e nomes (iguais nos dois jogos)
+  js/pellets.js             comida e power-ups na tela
   js/net.js                 conexão e suavização dos ticks
-  js/slither.js             cliente da Cobrinha: desenho, HUD, menu
-  shared/slither-rules.js   regras usadas pelo servidor E pelo navegador
-  shared/slither-state.js   como o navegador aplica cada tick (o teste usa o mesmo arquivo)
-test/slither.test.js        testes (`npm test`)
+  js/slither.js, js/agar.js clientes de cada jogo
+  shared/theme.js           skins, nomes dos bots, cores e power-ups (servidor e navegador)
+  shared/*-rules.js         regras de cada jogo (servidor e navegador)
+  shared/*-state.js         como o navegador aplica cada tick (os testes usam o mesmo arquivo)
+test/                       testes (`npm test`)
 ```
 
 O Three.js vem do `npm` e é servido em `/vendor/three/`, sem CDN e sem etapa de build.
@@ -55,5 +61,18 @@ O Three.js vem do `npm` e é servido em `/vendor/three/`, sem CDN e sem etapa de
 - O navegador toca os ticks ~100 ms atrás e interpola. Assim o movimento fica liso mesmo com a internet do celular oscilando.
 - **Controles:** no PC, o mouse aponta para onde virar e o clique ou o espaço dá turbo (setas e WASD também funcionam). No celular, um joystick aparece onde o dedo encosta, e o botão ⚡ dá turbo.
 - **Power-ups:** 🧲 ímã (come de longe), 🛡️ escudo (atravessa corpos e quica na parede), ⚡ turbo grátis, 👻 invisível (bots não te veem).
+
+## Como as Bolhas funcionam
+
+- Cada jogador tem uma direção (vira com o mesmo controle da Cobrinha) e de 1 a 16 células. As células andam sempre para a frente, e as pequenas são mais rápidas.
+- Para engolir, uma célula precisa ter 25% a mais de massa e cobrir quase toda a outra. A parede não mata.
+- **Dividir** (clique, espaço ou ✂️): cada célula com 30 ou mais de massa lança uma metade para a frente. As metades se juntam depois de 10 s ou mais (mais tempo quanto maior).
+- **Soltar massa** (botão direito, E ou 💧; segurar solta várias): serve para alimentar alguém ou um ouriço.
+- **Ouriços** (bolas verdes com espinhos):
+  - uma célula grande que encosta num ouriço come ele e explode em pedaços;
+  - uma célula pequena se esconde dentro dele;
+  - alimentado com massa, o ouriço dispara um filhote na direção do tiro.
+- Células enormes murcham mais rápido e cada célula tem no máximo 3.000 de massa. Assim a arena (raio 55) nunca fica tomada por um planeta.
+- Cada tick manda só as células que mudaram (~1 KB, ~0,5 KB comprimido).
 
 Mais detalhes e o histórico de decisões estão em [HISTORICO.md](HISTORICO.md). As regras para quem mexe no código (pessoas e IAs) estão em [AGENTS.md](AGENTS.md).

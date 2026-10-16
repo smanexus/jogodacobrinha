@@ -5,6 +5,62 @@ Diário de decisões e mudanças, o mais recente primeiro. Serve para continuar 
 
 ---
 
+## 2026-10-16 · Claude · Bolhas 3D (estilo agar.io)
+
+### O que foi pedido
+O dono publicou a Cobrinha no Railway e pediu as Bolhas 3D.
+
+### Decisões
+- **Mesmo controle da Cobrinha:** a bolha anda sempre para a frente e o joystick/mouse vira. Num espaço 3D
+  não há "apontar para um lugar na tela" como no agar 2D, e manter o mesmo controle nos dois jogos ajuda quem joga.
+- **Ações:**
+  - dividir: clique, espaço ou ✂️;
+  - soltar massa: botão direito, E ou 💧, e segurar solta várias.
+- **Ouriços** no lugar dos "vírus" do agar (tema brasileiro). Encostar sendo grande explode a célula em
+  pedaços; pequeno se esconde nele; alimentado com massa, ele dispara um filhote.
+- Os mesmos 4 power-ups da Cobrinha, adaptados:
+  - 🛡️ escudo: ninguém te engole;
+  - ⚡ turbo: +35% de velocidade;
+  - 🧲 ímã: come comida de longe;
+  - 👻 invisível: bots não te veem.
+- **Balanceamento** feito com simulações de 5–10 min só com bots:
+  - arena de raio 55;
+  - célula de no máximo 3.000 de massa;
+  - quanto maior a célula, mais rápido ela murcha.
+  - Resultado: ~5 mortes por minuto, e o maior chega a ~3.800 sem dominar a arena.
+    Com raio 80 quase ninguém se encontrava; com 50 um bot chegava a 16.000.
+
+### O que foi feito
+- `games/agar.js`: sala das Bolhas (protocolo no topo do arquivo), registrada em `/ws/agar` no `server.js`.
+  - As bolinhas de comida ficam numa grade espacial.
+  - Cada tick manda só as células que mudaram.
+- `public/agar.html` + `public/js/agar.js`: cliente das Bolhas.
+  - Bolhas com borda brilhante e olhos que olham para onde o dono vai.
+  - Ouriços com 42 espinhos girando e animação de engolir.
+  - Nomes sobre os jogadores e botões ✂️/💧 no celular.
+- **Código comum aos dois jogos:**
+  - `public/shared/theme.js`: skins, nomes, cores e power-ups;
+  - `games/vec.js`: vetores 3D, o controle relativo `steerDir` e a validação `parseSteer`/`cleanName`;
+  - `public/js/ui.js`: menu, ranking, power-ups, feed e nomes;
+  - `public/js/pellets.js`: comida;
+  - `engine.js`: agora tem duas ações (`primary`/`secondary`, com `onPress`) e a opção `rim` no `Batch`.
+- `public/js/slither.js` reescrito em cima dessas peças, com o mesmo comportamento.
+- Compressão WebSocket ligada para mensagens acima de 512 bytes, o que corta ~55% dos ticks.
+- Correção: comida ou power-up colado na câmera tapava a tela inteira e agora não é desenhado.
+- Testes: `test/agar.test.js`.
+  - Em 2 min de jogo simulado, o cliente fica com exatamente os mesmos jogadores, células e bolinhas do servidor.
+  - Também testa dividir, ejetar e engolir.
+- Testado no Chromium headless, sem erros no console:
+  - desktop e celular com toque, incluindo botões ✂️/💧 e dividir em 4 bolhas;
+  - morte nos dois jogos ("Tucano engoliu você…") e "Jogar de novo".
+
+### Pendências novas
+- [ ] Previsão local nas Bolhas também (a resposta tem o atraso da rede + ~100 ms).
+- [ ] Bots das Bolhas não usam ouriços nem soltam massa de propósito.
+- [ ] Ninguém consegue parar (sempre anda para a frente). Se fizer falta, um botão de "freio" resolve.
+
+---
+
 ## 2026-10-16 · Claude · Base do projeto + Cobrinha 3D jogável online
 
 ### O que foi pedido
@@ -63,9 +119,7 @@ Um site que funcione no celular com dois jogos, um no estilo agar.io e outro no 
 - Em 5 min simulados, os bots não bateram na parede e houve ~10 mortes por minuto.
 
 ### Limitações conhecidas / próximos passos
-- [ ] **Bolhas 3D (agar.io)**: criar `games/agar.js` + `public/agar.html` + `public/js/agar.js`, reaproveitando
-      `engine.js` (arena, câmera, controles, `Batch`) e o loop de `server.js`. Ideia: células-esfera, dividir
-      (botão de ação) e ejetar massa.
+- [x] **Bolhas 3D (agar.io)**: feito na entrada acima.
 - [ ] Previsão local da própria cobra: hoje a resposta ao controle tem o atraso da rede + ~100 ms de suavização.
 - [ ] Ainda não foi medido o FPS em celulares reais: no teste só havia renderização por software.
       Se pesar, as alavancas são `Batch` com menos gomos, menos comida (`FOOD`) e `setPixelRatio`.
